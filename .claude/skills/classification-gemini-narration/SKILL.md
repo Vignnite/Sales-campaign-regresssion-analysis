@@ -16,7 +16,19 @@ description: Generalized Gemini narration helper, reusable across any case study
   (mirror whichever chain is currently working in this project's other case
   study notebooks, since they share the same key/quota), and on **any**
   exception (not just quota errors — a 404 for a retired model should also
-  fall through) move to the next model in the chain before giving up.
+  fall through) move to the next model in the chain before giving up. Prune
+  a model from the chain once it's confirmed permanently retired (a 404
+  "no longer available" response) — a dead model left in the chain never
+  succeeds, and worse, its error becomes the one reported in the fallback
+  text even when the real cause further up the chain was something else
+  (e.g. a transient per-minute rate limit), which is actively misleading
+  when debugging. Give each model one retry with a short sleep (around 2s)
+  before moving to the next model in the chain, not just a single attempt
+  per model — a prior case study in this project saw the same 1-2 insight
+  cells (out of ~15-17 calls) fall back on every execution run, which turned
+  out to be a brief per-minute rate-limit burst knocking out every model in
+  the chain at once, not a real unavailability; a short retry absorbs that
+  without masking a genuine failure.
 - **Suppress the `google_genai.types` logger from the start**:
   `logging.getLogger("google_genai.types").setLevel(logging.ERROR)` right
   after `load_dotenv`, in the same cell. Some Gemini models return an
